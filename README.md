@@ -6,15 +6,6 @@ This project was created primarily for **educational and learning purposes**.
 While it is well-structured and could technically be used in production, it is **not intended for commercialization**.  
 The main goal is to explore and demonstrate best practices, patterns, and technologies in software development.
 
-## Getting Started
-
-1. Clone the repository
-2. Navigate to the project folder
-3. Execute: `npm install`
-4. Execute: `npm run dev`
-
-The application will open automatically at `http://localhost:3000`
-
 ## Description
 
 **Gif Dive** is a single-page web application for discovering and browsing animated GIFs powered by the [Giphy API](https://developers.giphy.com/). It lets you build a personal dashboard of GIF categories in real time, each one populated with a configurable number of results fetched directly from Giphy.
@@ -31,6 +22,8 @@ The application will open automatically at `http://localhost:3000`
 
 ## Technologies used
 
+Under the hood, Gif Dive is built on top of the following stack:
+
 1. React JS
 2. TypeScript
 3. Vite
@@ -38,6 +31,8 @@ The application will open automatically at `http://localhost:3000`
 5. CSS3
 
 ## Libraries used
+
+On top of that stack, the project relies on the following packages:
 
 #### Dependencies
 
@@ -77,11 +72,21 @@ The application will open automatically at `http://localhost:3000`
 "vite": "^7.1.6"
 ```
 
-## Portfolio Link
+## Getting Started
 
-[`https://www.diegolibonati.com.ar/#/project/gif-dive`](https://www.diegolibonati.com.ar/#/project/gif-dive)
+With the stack and dependencies in mind, you can spin the app up locally by following these steps:
+
+1. Clone the repository
+2. Navigate to the project folder
+3. Copy `.env.example` to `.env` and fill in your Giphy credentials (`VITE_API_URL` and `VITE_API_KEY`) — without these the app cannot reach the Giphy API
+4. Execute: `npm install`
+5. Execute: `npm run dev`
+
+The application will open automatically at `http://localhost:3000`.
 
 ## Testing
+
+Once the app is running locally, you can verify everything works as expected by running the test suite:
 
 1. Navigate to the project folder
 2. Execute: `npm test`
@@ -92,7 +97,9 @@ For coverage report:
 npm run test:coverage
 ```
 
-## Security
+## Security Audit
+
+Beyond functional tests, you can also audit the project for vulnerabilities and overall health:
 
 ### npm audit
 
@@ -119,3 +126,7 @@ npm run doctor -- --verbose
 ## Known Issues
 
 None at the moment.
+
+## Portfolio Link
+
+[`https://www.diegolibonati.com.ar/#/project/gif-dive`](https://www.diegolibonati.com.ar/#/project/gif-dive)
