@@ -65,10 +65,12 @@ On top of that stack, the project relies on the following packages:
 "jest": "^30.3.0"
 "jest-environment-jsdom": "^30.3.0"
 "lint-staged": "^15.0.0"
+"msw": "2.10.4"
 "prettier": "^3.0.0"
 "ts-jest": "^29.4.6"
 "typescript": "^5.2.2"
 "typescript-eslint": "^8.0.0"
+"undici": "^7.25.0"
 "vite": "^7.1.6"
 ```
 
@@ -95,6 +97,56 @@ For coverage report:
 
 ```bash
 npm run test:coverage
+```
+
+## Continuous Integration
+
+The repository ships with a **GitHub Actions** pipeline defined in [`.github/workflows/ci.yml`](.github/workflows/ci.yml). It runs automatically on every `push` and `pull_request` targeting the `main` branch.
+
+### Pipeline overview
+
+```
+                  ┌─── PR or push to main ───┐
+                  ▼                          ▼
+┌──────────────────────┐  ┌──────────────────┐  ┌──────────────────┐
+│   lint-and-audit     │─▶│     testing      │─▶│      build       │
+│ eslint · type-check  │  │  jest (jsdom)    │  │ tsc + vite build │
+└──────────────────────┘  └──────────────────┘  └──────────────────┘
+```
+
+### Validation jobs (run on every PR and push to `main`)
+
+1. **`lint-and-audit`** — installs dependencies with `npm ci`, then runs `npm run lint` (ESLint over `src/`) and `npm run type-check` (`tsc -p tsconfig.app.json --noEmit`).
+2. **`testing`** — runs `npm run test` (Jest under `jest-environment-jsdom`, with MSW intercepting network calls). Depends on `lint-and-audit` passing.
+3. **`build`** — runs `npm run build` (type-check via `tsc -p tsconfig.app.json` followed by `vite build`). Depends on `testing` passing.
+
+All three jobs share the same Ubuntu runner, install dependencies with `npm ci`, and pin the Node version through [`.nvmrc`](.nvmrc) using `actions/setup-node` with npm caching enabled.
+
+### Conventional Commits
+
+While the pipeline does not enforce them, commits in this repository follow [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/) (`feat:`, `fix:`, `chore:`, `refactor:`, etc.) to keep history readable and PRs easy to skim.
+
+### Where the build outputs live
+
+| Output                                    | Location                     |
+| ----------------------------------------- | ---------------------------- |
+| Validation logs (lint, type-check, tests) | **Actions** tab on GitHub    |
+| Production bundle (`dist/`)               | Ephemeral, inside the runner |
+
+> **Note:** the `build` job is a smoke test that confirms a production bundle can be produced; the resulting `dist/` directory is not uploaded as an artifact or deployed automatically.
+
+### Running the same checks locally
+
+```bash
+# lint-and-audit
+npm run lint
+npm run type-check
+
+# testing
+npm run test
+
+# build
+npm run build
 ```
 
 ## Security Audit

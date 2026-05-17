@@ -1,89 +1,99 @@
+import { http, HttpResponse } from "msw";
+
 import gifService from "@/services/gifService";
 
-import { gifs } from "@tests/__mocks__/gifs.mock";
+import { mockSearchResponse, mockRandomResponse } from "@tests/__mocks__/mswHandlers.mock";
+import { mockMswServer } from "@tests/__mocks__/mswServer.mock";
 
-const mockGetAllResponse = {
-  data: gifs,
-  meta: { status: 200, msg: "OK", response_id: "test" },
-  pagination: { total_count: 2, count: 2, offset: 0 },
-};
-const mockRandomResponse = {
-  data: gifs[0]!,
-  meta: { status: 200, msg: "OK", response_id: "test" },
-};
-
-jest.mock("@/constants/envs", () => ({
-  __esModule: true,
-  default: {
-    VITE_API_KEY: "api_key",
-    VITE_API_URL: "https://api.com",
-  },
-}));
-
-const mockFetchSuccess = (data: unknown): void => {
-  global.fetch = jest.fn().mockResolvedValue({
-    ok: true,
-    json: async () => await data,
-  } as Response);
-};
-
-const mockFetchError = (status: number): void => {
-  global.fetch = jest.fn().mockResolvedValue({
-    ok: false,
-    status,
-  } as Response);
-};
-
-const mockFetchNetworkError = (message = "Network error"): void => {
-  global.fetch = jest.fn().mockRejectedValue(new Error(message));
-};
+jest.mock("@/constants/envs", () => {
+  const mockData = jest.requireActual("@tests/__mocks__/envs.mock");
+  return {
+    __esModule: true,
+    default: mockData.mockEnvs,
+  };
+});
 
 describe("gifService", () => {
   describe("getAll", () => {
     describe("when fetch succeeds", () => {
       it("should return the response with gif data", async () => {
-        mockFetchSuccess(mockGetAllResponse);
         const result = await gifService.getAll("cats", 10);
-        expect(result).toEqual(mockGetAllResponse);
+
+        expect(result).toEqual(mockSearchResponse);
       });
 
-      it("should call fetch with the correct search endpoint", async () => {
-        mockFetchSuccess(mockGetAllResponse);
-        await gifService.getAll("cats", 10);
-        expect(global.fetch).toHaveBeenCalledWith(
-          "/v1/gifs/search?api_key=api_key&q=cats&limit=10&offset=0&rating=r&lang=en"
+      it("should call the search endpoint with the api key, category and limit", async () => {
+        let capturedUrl = "";
+        mockMswServer.use(
+          http.get("/v1/gifs/search", ({ request }) => {
+            capturedUrl = request.url;
+            return HttpResponse.json(mockSearchResponse);
+          })
         );
+
+        await gifService.getAll("cats", 10);
+
+        expect(capturedUrl).toContain("/v1/gifs/search");
+        expect(capturedUrl).toContain("api_key=api_key");
+        expect(capturedUrl).toContain("q=cats");
+        expect(capturedUrl).toContain("limit=10");
+        expect(capturedUrl).toContain("offset=0");
+        expect(capturedUrl).toContain("rating=r");
+        expect(capturedUrl).toContain("lang=en");
       });
 
-      it("should include the category in the fetch url", async () => {
-        mockFetchSuccess(mockGetAllResponse);
+      it("should include the category sent by the caller", async () => {
+        let capturedQ: string | null = null;
+        mockMswServer.use(
+          http.get("/v1/gifs/search", ({ request }) => {
+            capturedQ = new URL(request.url).searchParams.get("q");
+            return HttpResponse.json(mockSearchResponse);
+          })
+        );
+
         await gifService.getAll("dogs", 5);
-        expect(global.fetch).toHaveBeenCalledWith(expect.stringContaining("q=dogs"));
+
+        expect(capturedQ).toBe("dogs");
       });
 
-      it("should include the limit in the fetch url", async () => {
-        mockFetchSuccess(mockGetAllResponse);
+      it("should include the limit sent by the caller", async () => {
+        let capturedLimit: string | null = null;
+        mockMswServer.use(
+          http.get("/v1/gifs/search", ({ request }) => {
+            capturedLimit = new URL(request.url).searchParams.get("limit");
+            return HttpResponse.json(mockSearchResponse);
+          })
+        );
+
         await gifService.getAll("cats", 20);
-        expect(global.fetch).toHaveBeenCalledWith(expect.stringContaining("limit=20"));
+
+        expect(capturedLimit).toBe("20");
       });
     });
 
     describe("when the server returns an error", () => {
-      it("should throw an error with the HTTP status", async () => {
-        mockFetchError(500);
+      it("should throw an error with the 500 HTTP status", async () => {
+        mockMswServer.use(
+          http.get("/v1/gifs/search", () => new HttpResponse(null, { status: 500 }))
+        );
+
         await expect(gifService.getAll("cats", 10)).rejects.toThrow("HTTP error! status: 500");
       });
 
-      it("should throw an error for 404 status", async () => {
-        mockFetchError(404);
+      it("should throw an error with the 404 HTTP status", async () => {
+        mockMswServer.use(
+          http.get("/v1/gifs/search", () => new HttpResponse(null, { status: 404 }))
+        );
+
         await expect(gifService.getAll("cats", 10)).rejects.toThrow("HTTP error! status: 404");
       });
     });
 
     describe("when there is a network error", () => {
       it("should propagate the network error", async () => {
-        mockFetchNetworkError("Failed to fetch");
-        await expect(gifService.getAll("cats", 10)).rejects.toThrow("Failed to fetch");
+        mockMswServer.use(http.get("/v1/gifs/search", () => HttpResponse.error()));
+
+        await expect(gifService.getAll("cats", 10)).rejects.toThrow();
       });
     });
   });
@@ -91,21 +101,35 @@ describe("gifService", () => {
   describe("getRandomGifsByCategory", () => {
     describe("when fetch succeeds", () => {
       it("should return the response with a single gif", async () => {
-        mockFetchSuccess(mockRandomResponse);
         const result = await gifService.getRandomGifsByCategory();
+
         expect(result).toEqual(mockRandomResponse);
       });
 
-      it("should call fetch with the correct random endpoint", async () => {
-        mockFetchSuccess(mockRandomResponse);
+      it("should call the random endpoint with the api key and rating", async () => {
+        let capturedUrl = "";
+        mockMswServer.use(
+          http.get("/v1/gifs/random", ({ request }) => {
+            capturedUrl = request.url;
+            return HttpResponse.json(mockRandomResponse);
+          })
+        );
+
         await gifService.getRandomGifsByCategory();
-        expect(global.fetch).toHaveBeenCalledWith("/v1/gifs/random?api_key=api_key&tag=&rating=g");
+
+        expect(capturedUrl).toContain("/v1/gifs/random");
+        expect(capturedUrl).toContain("api_key=api_key");
+        expect(capturedUrl).toContain("tag=");
+        expect(capturedUrl).toContain("rating=g");
       });
     });
 
     describe("when the server returns an error", () => {
-      it("should throw an error with the HTTP status", async () => {
-        mockFetchError(503);
+      it("should throw an error with the 503 HTTP status", async () => {
+        mockMswServer.use(
+          http.get("/v1/gifs/random", () => new HttpResponse(null, { status: 503 }))
+        );
+
         await expect(gifService.getRandomGifsByCategory()).rejects.toThrow(
           "HTTP error! status: 503"
         );
@@ -114,8 +138,9 @@ describe("gifService", () => {
 
     describe("when there is a network error", () => {
       it("should propagate the network error", async () => {
-        mockFetchNetworkError();
-        await expect(gifService.getRandomGifsByCategory()).rejects.toThrow("Network error");
+        mockMswServer.use(http.get("/v1/gifs/random", () => HttpResponse.error()));
+
+        await expect(gifService.getRandomGifsByCategory()).rejects.toThrow();
       });
     });
   });
